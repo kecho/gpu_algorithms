@@ -12,3 +12,4 @@ license = {file = 'LICENSE'}
 authors = [
   {name = 'Kleber Garcia', email = 'kecho_garcia@hotmail.com'},
 ]
+dependencies = [ 'numpy', 'coalpy' ]
