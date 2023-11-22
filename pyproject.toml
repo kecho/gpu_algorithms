@@ -1,0 +1,14 @@
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python']
+
+[project]
+name = 'gpu_algorithms'
+version = '0.0.1'
+description = 'GPU algorithms package to compare / benchmark.'
+readme = 'README.md'
+requires-python = '>=3.8'
+license = {file = 'LICENSE'}
+authors = [
+  {name = 'Kleber Garcia', email = 'kecho_garcia@hotmail.com'},
+]
