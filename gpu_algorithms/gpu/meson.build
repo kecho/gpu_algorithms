@@ -1,0 +1,9 @@
+py.install_sources(
+    [
+        '__init__.py',
+        'prefix_sum.hlsl',
+        'prefix_sum.py',
+        'utilities.py'
+    ],
+    subdir:'gpu_algorithms/gpu'
+)

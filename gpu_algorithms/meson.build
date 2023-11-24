@@ -4,4 +4,5 @@ py.install_sources(
 )
 
 subdir('native')
+subdir('gpu')
 
