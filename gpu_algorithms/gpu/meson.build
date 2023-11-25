@@ -2,6 +2,8 @@ py.install_sources(
     [
         '__init__.py',
         'prefix_sum.hlsl',
+        'threading.hlsl',
+        'clear_target.hlsl',
         'prefix_sum.py',
         'utilities.py'
     ],
