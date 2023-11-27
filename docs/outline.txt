@@ -1,0 +1,8 @@
+Title:
+Using your GPU for general purpose: algorithms, techniques and a compute abstraction layer for Python (CoalPy).
+
+Abstract:
+In recent years there has been a raise in public interest of scalable data processing, machine learning and computer graphics. All of these problem spaces rely more and more on general purpose graphics processing unit (GPGPU). We will present a couple of algorithms designed specifically for the GPU (Sorting and Prefixing), discuss applications and performance, we will also show how to write your own algorithms using CoalPy (Compute Abstraction layer for Python).
+
+Outline:
+
