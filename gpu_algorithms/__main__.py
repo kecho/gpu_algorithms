@@ -4,9 +4,15 @@ import coalpy.gpu
 import time
 from .gpu import prefix_sum
 
+from . import native
+
 def benchmark_prefix_sum(sample_size):
     #prepare input
     rand_array = np.random.randint(0, high=sample_size, size=sample_size)
+    benchmark_prefix_sum_gpu(sample_size, rand_array)
+    benchmark_prefix_sum_cpu(sample_size, rand_array)
+
+def benchmark_prefix_sum_gpu(sample_size, sample_array):
 
     input_buffer = coalpy.gpu.Buffer(
         name="input_buffer", 
@@ -20,11 +26,11 @@ def benchmark_prefix_sum(sample_size):
 
     cmd_list = coalpy.gpu.CommandList()
     cmd_list.begin_marker("upload_resource")
-    cmd_list.upload_resource( source=rand_array, destination=input_buffer )
+    cmd_list.upload_resource( source=sample_array, destination=input_buffer )
     cmd_list.end_marker()
 
     cmd_list.begin_marker("prefix_sum")
-    output_buffer = prefix_sum.run(cmd_list, input_buffer, prefix_sum_tmp_args, is_exclusive=True)
+    output_buffer = prefix_sum.run(cmd_list, input_buffer, prefix_sum_tmp_args, is_exclusive=False)
     cmd_list.end_marker()
 
     coalpy.gpu.begin_collect_markers()
@@ -47,11 +53,16 @@ def benchmark_prefix_sum(sample_size):
     #print(cpu_result_buffer)
 
     cpu_start_time = time.time()
-    prefix_cpu_result = np.cumsum(rand_array)
+    prefix_cpu_result = np.cumsum(sample_array)
     ellapsed_seconds = time.time() - cpu_start_time
 
     print(ellapsed_seconds * 1000)
     
+    return
+
+def benchmark_prefix_sum_cpu(sample_size, sample_array):
+    (time, result) = native.prefix_sum(sample_array)
+    print ("Time: " + str(time))
     return
 
 if __name__ == '__main__':
