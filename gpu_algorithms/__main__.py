@@ -41,6 +41,7 @@ def benchmark_prefix_sum_gpu(sample_size, sample_array):
     #download_request.resolve()
     #cpu_result_buffer = np.frombuffer(download_request.data_as_bytearray(), dtype='i')
     #cpu_result_buffer = np.resize(cpu_result_buffer, sample_size)
+    #print(cpu_result_buffer)
 
     #calculate time stamp markers
     marker_download_request = coalpy.gpu.ResourceDownloadRequest(resource = marker_results.timestamp_buffer)
@@ -50,7 +51,6 @@ def benchmark_prefix_sum_gpu(sample_size, sample_array):
         (name, (marker_data[ei]/marker_results.timestamp_frequency -  marker_data[bi]/marker_results.timestamp_frequency) * 1000) for (name, pid, bi, ei) in marker_results.markers]
 
     print(marker_benchmarks)
-    #print(cpu_result_buffer)
 
     cpu_start_time = time.time()
     prefix_cpu_result = np.cumsum(sample_array)

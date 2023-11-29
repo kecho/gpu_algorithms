@@ -38,7 +38,7 @@ PyObject* prefix_sum_python(PyObject* self, PyObject* vargs, PyObject* kwds)
     Py_INCREF(outputObj);
     free(results);
     clock_t end_time = clock();
-    double timeMilli = ((double)(end_time-begin_time)/ (CLOCKS_PER_SEC)) * 1000;
+    double timeMilli = ((double)(end_time-begin_time))/(double)(CLOCKS_PER_SEC) * 1000.0;
     return Py_BuildValue("(fO)", timeMilli, outputObj);
 }
 
