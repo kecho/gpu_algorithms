@@ -21,17 +21,6 @@ def benchmark_prefix_sum(args):
     benchmark_prefix_sum_numpy(sample_size, rand_array, args)
     benchmark_prefix_sum_cpu(sample_size, rand_array, args)
 
-def benchmark_prefix_sum_numpy(sample_size, sample_array, args):
-    print("\t ::: Numpy Prefix Sum :::")
-    cpu_start_time = time.time()
-    prefix_cpu_result = np.cumsum(sample_array)
-    ellapsed_seconds = time.time() - cpu_start_time
-    if args.printresults:
-        print("\t Result: " + str(prefix_cpu_result))
-    print("\t Elapsed time: " + str(ellapsed_seconds * 1000) + " ms.")
-    print()
-    return
-
 def benchmark_prefix_sum_gpu(sample_size, sample_array, args):
     print("\t ::: GPU Prefix Sum :::")
 
@@ -79,7 +68,7 @@ def benchmark_prefix_sum_gpu(sample_size, sample_array, args):
     return
 
 def benchmark_prefix_sum_cpu(sample_size, sample_array, args):
-    print ("\t ::: CPU (C impl) Prefix Sum :::")
+    print ("\t ::: CPU (C) Prefix Sum :::")
     (time, result) = native.prefix_sum(sample_array)
 
     if args.printresults:
@@ -89,6 +78,57 @@ def benchmark_prefix_sum_cpu(sample_size, sample_array, args):
     print ("\t Elapsed time: " + str(time) + " ms.")
     print();
     return
+
+def benchmark_prefix_sum_numpy(sample_size, sample_array, args):
+    print("\t ::: Numpy Prefix Sum :::")
+    cpu_start_time = time.time()
+    prefix_cpu_result = np.cumsum(sample_array)
+    ellapsed_seconds = time.time() - cpu_start_time
+    if args.printresults:
+        print("\t Result: " + str(prefix_cpu_result))
+    print("\t Elapsed time: " + str(ellapsed_seconds * 1000) + " ms.")
+    print()
+    return
+
+
+def benchmark_quicksort_numpy(rand_array, sample_size, args):
+    print ("\t ::: Numpy Quicksort :::")
+    cpu_start_time = time.time()
+    sort_result = np.sort(rand_array, axis=-1, kind='quicksort')
+    ellapsed_seconds = time.time() - cpu_start_time
+    if args.printresults:
+        print("\t Results: " + str(sort_result))
+    print("\t Elapsed time: " + str(ellapsed_seconds * 1000) + " ms.")
+    print()
+    return
+
+def benchmark_radixsort_cpu(rand_array, sample_size, args):
+    print ("\t ::: CPU (C) Radix Sort :::")
+    (time, result) = native.radix_sort(rand_array)
+
+    if args.printresults:
+        array_value = np.frombuffer(result, dtype='i')
+        print("\t Results: " + str(array_value))
+
+    print("\t Elapsed time: " + str(time) + " ms.")
+    print()
+    return
+
+
+def benchmark_sort(args):
+    sample_size = int(args.size)
+
+    #prepare input
+    rand_array = np.random.randint(0, high=sample_size, size=sample_size)
+
+    print (":: Sort ::")
+
+    if args.printresults:
+        print("Input: " + str(rand_array))
+
+    benchmark_quicksort_numpy(rand_array, sample_size, args)
+    benchmark_radixsort_cpu(rand_array, sample_size, args)
+    
 
 RAND_SEED_DEFAULT = 1999
 
@@ -110,4 +150,5 @@ if __name__ == '__main__':
     if rand_seed != RAND_SEED_DEFAULT:
         np.random.seed(int(args.randseed))
 
+    benchmark_sort(args)
     benchmark_prefix_sum(args)
