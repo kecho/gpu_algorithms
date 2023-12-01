@@ -28,8 +28,8 @@ PyObject* prefix_sum_python(PyObject* self, PyObject* vargs, PyObject* kwds)
     int accumulator = 0;
     for (int i = 0; i < len; ++i)
     {
-        results[i] = accumulator;
         accumulator += input_vals[i];
+        results[i] = accumulator;
     }
     
     PyBuffer_Release(&buffer_view);

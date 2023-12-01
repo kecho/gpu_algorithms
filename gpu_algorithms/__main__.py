@@ -6,13 +6,34 @@ from .gpu import prefix_sum
 
 from . import native
 
-def benchmark_prefix_sum(sample_size):
+def benchmark_prefix_sum(args):
+    sample_size = int(args.size)
+
     #prepare input
     rand_array = np.random.randint(0, high=sample_size, size=sample_size)
-    benchmark_prefix_sum_gpu(sample_size, rand_array)
-    benchmark_prefix_sum_cpu(sample_size, rand_array)
 
-def benchmark_prefix_sum_gpu(sample_size, sample_array):
+    print (":: Prefix Sum ::")
+
+    if args.printresults:
+        print("Input: " + str(rand_array))
+
+    benchmark_prefix_sum_gpu(sample_size, rand_array, args)
+    benchmark_prefix_sum_numpy(sample_size, rand_array, args)
+    benchmark_prefix_sum_cpu(sample_size, rand_array, args)
+
+def benchmark_prefix_sum_numpy(sample_size, sample_array, args):
+    print("\t ::: Numpy Prefix Sum :::")
+    cpu_start_time = time.time()
+    prefix_cpu_result = np.cumsum(sample_array)
+    ellapsed_seconds = time.time() - cpu_start_time
+    if args.printresults:
+        print("\t Result: " + str(prefix_cpu_result))
+    print("\t Elapsed time: " + str(ellapsed_seconds * 1000) + " ms.")
+    print()
+    return
+
+def benchmark_prefix_sum_gpu(sample_size, sample_array, args):
+    print("\t ::: GPU Prefix Sum :::")
 
     input_buffer = coalpy.gpu.Buffer(
         name="input_buffer", 
@@ -37,11 +58,12 @@ def benchmark_prefix_sum_gpu(sample_size, sample_array):
     coalpy.gpu.schedule(cmd_list)
     marker_results = coalpy.gpu.end_collect_markers()
 
-    #download_request = coalpy.gpu.ResourceDownloadRequest(resource = output_buffer)
-    #download_request.resolve()
-    #cpu_result_buffer = np.frombuffer(download_request.data_as_bytearray(), dtype='i')
-    #cpu_result_buffer = np.resize(cpu_result_buffer, sample_size)
-    #print(cpu_result_buffer)
+    if args.printresults:
+        download_request = coalpy.gpu.ResourceDownloadRequest(resource = output_buffer)
+        download_request.resolve()
+        cpu_result_buffer = np.frombuffer(download_request.data_as_bytearray(), dtype='i')
+        cpu_result_buffer = np.resize(cpu_result_buffer, sample_size)
+        print("\t Results: " + str(cpu_result_buffer))
 
     #calculate time stamp markers
     marker_download_request = coalpy.gpu.ResourceDownloadRequest(resource = marker_results.timestamp_buffer)
@@ -50,25 +72,42 @@ def benchmark_prefix_sum_gpu(sample_size, sample_array):
     marker_benchmarks = [
         (name, (marker_data[ei]/marker_results.timestamp_frequency -  marker_data[bi]/marker_results.timestamp_frequency) * 1000) for (name, pid, bi, ei) in marker_results.markers]
 
-    print(marker_benchmarks)
+    (_, ellapsed_time) = marker_benchmarks[1]
 
-    cpu_start_time = time.time()
-    prefix_cpu_result = np.cumsum(sample_array)
-    ellapsed_seconds = time.time() - cpu_start_time
-
-    print(ellapsed_seconds * 1000)
-    
+    print("\t Elapsed time: " + str(ellapsed_time) + " ms.")
+    print();
     return
 
-def benchmark_prefix_sum_cpu(sample_size, sample_array):
+def benchmark_prefix_sum_cpu(sample_size, sample_array, args):
+    print ("\t ::: CPU (C impl) Prefix Sum :::")
     (time, result) = native.prefix_sum(sample_array)
-    print ("Time: " + str(time))
+
+    if args.printresults:
+        array_value = np.frombuffer(result, dtype='i')
+        print ("\t Results: " + str(array_value))
+    
+    print ("\t Elapsed time: " + str(time) + " ms.")
+    print();
     return
+
+RAND_SEED_DEFAULT = 1999
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         prog="python -m gpu_algorithms",
         description = "::gpu_algorithms:: - benchmark tool for GPU algorithms")
     parser.add_argument("-s", "--size", default=1600, required=False, help="size of input")
+    parser.add_argument("-r", "--randseed", default=RAND_SEED_DEFAULT, required=False, help="random seed")
+    parser.add_argument("-p", "--printresults", action='store_true', help="print inputs/outputs")
+    parser.add_argument("-g", "--printgpu", action='store_true', help="print the used GPU")
     args = parser.parse_args()
-    benchmark_prefix_sum(int(args.size))
+
+    if args.printgpu:
+        print("Available gpus: " + str(coalpy.gpu.get_adapters()))
+        print("Current gpu info: " + str(coalpy.gpu.get_current_adapter_info()))
+
+    rand_seed = int(args.randseed)
+    if rand_seed != RAND_SEED_DEFAULT:
+        np.random.seed(int(args.randseed))
+
+    benchmark_prefix_sum(args)
