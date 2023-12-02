@@ -91,7 +91,7 @@ def benchmark_prefix_sum_numpy(sample_size, sample_array, args):
     return
 
 
-def benchmark_quicksort_numpy(rand_array, sample_size, args):
+def benchmark_quicksort_numpy(sample_size, rand_array, args):
     print ("\t ::: Numpy Quicksort :::")
     cpu_start_time = time.time()
     sort_result = np.sort(rand_array, axis=-1, kind='quicksort')
@@ -102,7 +102,7 @@ def benchmark_quicksort_numpy(rand_array, sample_size, args):
     print()
     return
 
-def benchmark_radixsort_cpu(rand_array, sample_size, args):
+def benchmark_radixsort_cpu(sample_size, rand_array, args):
     print ("\t ::: CPU (C) Radix Sort :::")
     (time, result) = native.radix_sort(rand_array)
 
@@ -112,6 +112,53 @@ def benchmark_radixsort_cpu(rand_array, sample_size, args):
 
     print("\t Elapsed time: " + str(time) + " ms.")
     print()
+    return
+
+def benchmark_radix_sort_gpu(sample_size, sample_array, args):
+    print("\t ::: GPU Radix Sort :::")
+
+    input_buffer = coalpy.gpu.Buffer(
+        name="input_buffer", 
+        type = coalpy.gpu.BufferType.Standard,
+        format = coalpy.gpu.Format.R32_UINT,
+        element_count = sample_size,    
+        stride = 4 #size of uint
+        )
+
+    #prefix_sum_tmp_args = prefix_sum.allocate_args(sample_size)
+
+    cmd_list = coalpy.gpu.CommandList()
+    cmd_list.begin_marker("upload_resource")
+    cmd_list.upload_resource( source=sample_array, destination=input_buffer )
+    cmd_list.end_marker()
+
+    cmd_list.begin_marker("radix_sort")
+    #output_buffer = prefix_sum.run(cmd_list, input_buffer, prefix_sum_tmp_args, is_exclusive=False)
+    output_buffer = input_buffer
+    cmd_list.end_marker()
+
+    coalpy.gpu.begin_collect_markers()
+    coalpy.gpu.schedule(cmd_list)
+    marker_results = coalpy.gpu.end_collect_markers()
+
+    if args.printresults:
+        download_request = coalpy.gpu.ResourceDownloadRequest(resource = output_buffer)
+        download_request.resolve()
+        cpu_result_buffer = np.frombuffer(download_request.data_as_bytearray(), dtype='i')
+        cpu_result_buffer = np.resize(cpu_result_buffer, sample_size)
+        print("\t Results: " + str(cpu_result_buffer))
+
+    #calculate time stamp markers
+    marker_download_request = coalpy.gpu.ResourceDownloadRequest(resource = marker_results.timestamp_buffer)
+    marker_download_request.resolve()
+    marker_data = np.frombuffer(marker_download_request.data_as_bytearray(), dtype=np.uint64)
+    marker_benchmarks = [
+        (name, (marker_data[ei]/marker_results.timestamp_frequency -  marker_data[bi]/marker_results.timestamp_frequency) * 1000) for (name, pid, bi, ei) in marker_results.markers]
+
+    (_, ellapsed_time) = marker_benchmarks[1]
+
+    print("\t Elapsed time: " + str(ellapsed_time) + " ms.")
+    print();
     return
 
 
@@ -126,8 +173,9 @@ def benchmark_sort(args):
     if args.printresults:
         print("Input: " + str(rand_array))
 
-    benchmark_quicksort_numpy(rand_array, sample_size, args)
-    benchmark_radixsort_cpu(rand_array, sample_size, args)
+    benchmark_quicksort_numpy(sample_size, rand_array, args)
+    benchmark_radixsort_cpu(sample_size, rand_array, args)
+    benchmark_radix_sort_gpu(sample_size, rand_array, args)
     
 
 RAND_SEED_DEFAULT = 1999

@@ -1,7 +1,7 @@
 import coalpy.gpu as g
 from . import utilities as utils
 
-g_group_size = 12
+g_group_size = 128
 g_prefix_sum_group = g.Shader(file = "prefix_sum.hlsl", main_function = "csPrefixSumOnGroup")
 g_prefix_sum_group_exclusive = g.Shader(file = "prefix_sum.hlsl", main_function = "csPrefixSumOnGroup", defines = ["EXCLUSIVE_PREFIX"])
 g_prefix_sum_next_input = g.Shader(file = "prefix_sum.hlsl", main_function = "csPrefixSumNextInput")
@@ -36,6 +36,7 @@ def run(cmd_list, input_buffer, prefix_sum_args, is_exclusive = False, input_cou
     pass_list = []
     while perform_reduction:
         input_count = group_count
+        print (input_count)
         group_count = utils.divup(group_count, g_group_size)
         pass_list.append((input_count, output_offset))
 

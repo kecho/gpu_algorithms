@@ -1,6 +1,5 @@
 // This value must match the group size in prefux_sum.py
 #define GROUP_SIZE 128
-#define GroupSize GROUP_SIZE
 #define HW_WAVE_SIZE 32
 #include "thread_utils.hlsl"
 
