@@ -1,8 +1,11 @@
-#define GROUP_SIZE_LOG2 6
-#define GROUP_SIZE (1 << GROUP_SIZE_LOG2) // 64
-#define HW_WAVE_SIZE 32
 #define BITS_PER_RADIX 8
-#define RADIX_COUNTS (1 << 8)
+#define RADIX_COUNTS (1 << BITS_PER_RADIX)
+
+#ifndef GROUP_SIZE
+#define GROUP_SIZE 64
+#endif
+
+#define HW_WAVE_SIZE 32
 
 #include "thread_utils.hlsl"
 
@@ -30,7 +33,6 @@ groupshared uint gs_radixCounts[RADIX_COUNTS];
 
 [numthreads(GROUP_SIZE, 1, 1)]
 void csCountScatterBuckets(
-    int3 dispatchThreadID : SV_DispatchThreadID,
     int groupIndex : SV_GroupIndex,
     int3 groupID : SV_GroupID)
 {
@@ -94,4 +96,49 @@ void csCountScatterBuckets(
     [loop]
     for (i = groupIndex; i < RADIX_COUNTS; i += GROUP_SIZE)
         g_outputRadixTable[batchIndex * RADIX_COUNTS + i] = gs_radixCounts[i];
+}
+
+#define g_batchesCount g_bufferArgs0.x
+
+Buffer<uint> g_inputCounterTable : register(t0);
+RWBuffer<uint> g_outputCounterTablePrefix : register(u0);
+RWBuffer<uint> g_outputRadixTotalCounts : register(u1);
+        
+[numthreads(GROUP_SIZE, 1, 1)]
+void csPrefixCountTable(
+    int groupIndex : SV_GroupIndex,
+    int3 groupID : SV_GroupID)
+{
+    uint radix = groupID.x;
+    uint tb = 0;
+    uint radixCounts = 0;
+    uint threadBatchesCount = (g_batchesCount + GROUP_SIZE - 1)/ GROUP_SIZE;
+    for (tb = 0; tb < threadBatchesCount; ++tb)
+    {
+        uint i = tb * GROUP_SIZE + groupIndex;
+    
+        uint countValue = i < g_batchesCount ? g_inputCounterTable[i * RADIX_COUNTS + radix] : 0;
+
+        uint batchOffset, batchCount;
+        ThreadUtils::PrefixExclusive(groupIndex, countValue, batchOffset, batchCount);
+    
+        if (i < g_batchesCount)
+            g_outputCounterTablePrefix[radix * g_batchesCount + i] = i;
+        radixCounts += batchCount;
+    }
+
+    if (groupIndex == 0)
+        g_outputRadixTotalCounts[radix] = radixCounts;
+}
+
+Buffer<uint> g_inputRadixTotalCounts : register(t0);
+RWBuffer<uint> g_outputGlobalPrefix : register(u0);
+
+[numthreads(GROUP_SIZE, 1, 1)]
+void csPrefixGlobalTable(int groupIndex : SV_GroupIndex)
+{
+    uint radixVal = g_inputRadixTotalCounts[groupIndex];
+    uint offset, unused;
+    ThreadUtils::PrefixExclusive(groupIndex, radixVal, offset, unused);
+    g_outputGlobalPrefix[groupIndex] = offset;
 }
