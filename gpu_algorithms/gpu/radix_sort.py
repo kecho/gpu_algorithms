@@ -5,23 +5,14 @@ g_group_size = 64
 g_batch_size = 128
 g_bits_per_radix = 8
 g_bytes_per_radix = int(g_bits_per_radix/8)
-g_radix_counts = int(32 / g_bits_per_radix)
+g_radix_counts = int(1 << g_bits_per_radix)
+g_radix_iterations = int(32/g_bits_per_radix)
 
 g_count_scatter_shader = g.Shader(file = "radix_sort.hlsl", main_function = "csCountScatterBuckets")
 
 def allocate_args(input_counts):
     aligned_batch_count = utils.alignup(input_counts, g_batch_size)
-    perform_reduction = True
-    
-    c = aligned_batch_count
-    count_table_count = 0
-
-    while perform_reduction:
-        count_table_count += utils.alignup(c, g_group_size)
-        c = utils.divup(c, g_group_size)
-        perform_reduction = c > 1
-
-    count_table_count = count_table_count * g_radix_counts
+    count_table_count = aligned_batch_count * g_radix_counts
     return (
         g.Buffer(name="localOffsets", element_count = input_counts, format = g.Format.R32_UINT),
         g.Buffer(name="pingBuffer", element_count = input_counts, format = g.Format.R32_UINT),

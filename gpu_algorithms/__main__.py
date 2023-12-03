@@ -142,11 +142,17 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
     marker_results = coalpy.gpu.end_collect_markers()
 
     if args.printresults:
-        download_request = coalpy.gpu.ResourceDownloadRequest(resource = output_buffer)
-        download_request.resolve()
-        cpu_result_buffer = np.frombuffer(download_request.data_as_bytearray(), dtype='i')
+        output_download_request = coalpy.gpu.ResourceDownloadRequest(resource = output_buffer)
+        output_download_request.resolve()
+        cpu_result_buffer = np.frombuffer(output_download_request.data_as_bytearray(), dtype='i')
         cpu_result_buffer = np.resize(cpu_result_buffer, sample_size)
         print("\t Results: " + str(cpu_result_buffer))
+
+        #counters_download_request = coalpy.gpu.ResourceDownloadRequest(resource = count_buffer)
+        #counters_download_request.resolve()
+        #cpu_counter_result_buffer = np.frombuffer(counters_download_request.data_as_bytearray(), dtype='i')
+        #cpu_counter_result_buffer = np.resize(cpu_counter_result_buffer, 256 * 4)
+        #print("\t Results: " + str(cpu_counter_result_buffer))
 
     #calculate time stamp markers
     marker_download_request = coalpy.gpu.ResourceDownloadRequest(resource = marker_results.timestamp_buffer)
@@ -167,14 +173,16 @@ def benchmark_sort(args):
 
     #prepare input
     rand_array = np.random.randint(0, high=sample_size, size=sample_size)
+    #for i in range(0, 512):
+    #    rand_array[i] = i 
 
     print (":: Sort ::")
 
-    #if args.printresults:
-    #    print("Input: " + str(rand_array))
+    if args.printresults:
+        print("Input: " + str(rand_array))
 
-    # benchmark_quicksort_numpy(sample_size, rand_array, args)
-    # benchmark_radixsort_cpu(sample_size, rand_array, args)
+    benchmark_quicksort_numpy(sample_size, rand_array, args)
+    benchmark_radixsort_cpu(sample_size, rand_array, args)
     benchmark_radix_sort_gpu(sample_size, rand_array, args)
     
 

@@ -3,9 +3,10 @@
 #define HW_WAVE_SIZE 32
 #define BITS_PER_RADIX 8
 #define RADIX_COUNTS (1 << 8)
-#define THREAD_DWORD_COMPONENTS (GROUP_SIZE / 32)
 
 #include "thread_utils.hlsl"
+
+#define THREAD_DWORD_COMPONENTS (GROUP_SIZE / DWORD_BIT_SIZE)
 
 cbuffer RadixArgs : register(b0)
 {
@@ -41,7 +42,7 @@ void csCountScatterBuckets(
     int threadComponentBitIndex = groupIndex & (DWORD_BIT_SIZE - 1); // modulus 32
     uint threadPrefixMask[THREAD_DWORD_COMPONENTS];
 
-    int i, k;
+    int i, k, unused;
 
     for (i = 0; i < THREAD_DWORD_COMPONENTS; ++i)
         threadPrefixMask[i] = i >= threadComponentOffset ? (i == threadComponentOffset ? ((1u << threadComponentBitIndex) - 1u) : 0) : ~0;
@@ -51,10 +52,10 @@ void csCountScatterBuckets(
 
     GroupMemoryBarrierWithGroupSync();
 
+    [loop]
     for (i = batchBegin + groupIndex; i < batchEnd; i += GROUP_SIZE)
     {
-        g_outputBatchOffset[i] = batchIndex;
-    /*
+        [loop]
         for (k = groupIndex; k < RADIX_TABLE_SIZE; k += GROUP_SIZE)
             gs_localRadixTable[k] = 0;
 
@@ -62,38 +63,35 @@ void csCountScatterBuckets(
 
         uint value = i < g_inputCount ? g_inputBuffer[i] : ~0u;
         uint radix = (value >> g_radixShift) & g_radixMask;
-        uint unused;
         InterlockedOr(gs_localRadixTable[THREAD_DWORD_COMPONENTS*radix + threadComponentOffset], 1u << threadComponentBitIndex, unused);
 
         GroupMemoryBarrierWithGroupSync();
 
         uint localOffset = 0;
+
+        [unroll(THREAD_DWORD_COMPONENTS)]
         for (k = 0; k < THREAD_DWORD_COMPONENTS; ++k)
-        {
-            uint radixTableThreadBits = gs_localRadixTable[THREAD_DWORD_COMPONENTS*radix + k];
-            localOffset += countbits(radixTableThreadBits & threadPrefixMask[k]);
-        }
+            localOffset += countbits(gs_localRadixTable[THREAD_DWORD_COMPONENTS*radix + k] & threadPrefixMask[k]);
 
         g_outputBatchOffset[i] = localOffset + gs_radixCounts[radix];
 
         GroupMemoryBarrierWithGroupSync();
 
-        for (uint usedRadix = groupIndex; usedRadix < RADIX_COUNTS; ++usedRadix)
+        for (uint usedRadix = groupIndex; usedRadix < RADIX_COUNTS; usedRadix += GROUP_SIZE)
         {
             uint localCountForRadix = 0;
-            for (k = 0; k < THREAD_DWORD_COMPONENTS; ++k)
-            {
-                uint radixTableThreadBits = gs_localRadixTable[THREAD_DWORD_COMPONENTS*usedRadix + k];
-                localCountForRadix += countbits(radixTableThreadBits);
-            }
 
-            InterlockedAdd(gs_radixCounts[usedRadix], localCountForRadix, unused);
+            [unroll(THREAD_DWORD_COMPONENTS)]
+            for (k = 0; k < THREAD_DWORD_COMPONENTS; ++k)
+                localCountForRadix += countbits(gs_localRadixTable[THREAD_DWORD_COMPONENTS*usedRadix + k]);
+
+            gs_radixCounts[usedRadix] += localCountForRadix;
         }
-    */
     }
 
     GroupMemoryBarrierWithGroupSync();
 
+    [loop]
     for (i = groupIndex; i < RADIX_COUNTS; i += GROUP_SIZE)
-        g_outputRadixTable[batchIndex * RADIX_COUNTS + i] = i;
+        g_outputRadixTable[batchIndex * RADIX_COUNTS + i] = gs_radixCounts[i];
 }
