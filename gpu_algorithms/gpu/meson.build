@@ -2,9 +2,11 @@ py.install_sources(
     [
         '__init__.py',
         'prefix_sum.hlsl',
+        'radix_sort.hlsl',
         'thread_utils.hlsl',
         'clear_target.hlsl',
         'prefix_sum.py',
+        'radix_sort.py',
         'utilities.py'
     ],
     subdir:'gpu_algorithms/gpu'

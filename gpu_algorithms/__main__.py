@@ -3,6 +3,7 @@ import numpy as np
 import coalpy.gpu
 import time
 from .gpu import prefix_sum
+from .gpu import radix_sort
 
 from . import native
 
@@ -32,7 +33,7 @@ def benchmark_prefix_sum_gpu(sample_size, sample_array, args):
         stride = 4 #size of uint
         )
 
-    prefix_sum_tmp_args = prefix_sum.allocate_args(sample_size)
+    prefix_sum_args = prefix_sum.allocate_args(sample_size)
 
     cmd_list = coalpy.gpu.CommandList()
     cmd_list.begin_marker("upload_resource")
@@ -40,7 +41,7 @@ def benchmark_prefix_sum_gpu(sample_size, sample_array, args):
     cmd_list.end_marker()
 
     cmd_list.begin_marker("prefix_sum")
-    output_buffer = prefix_sum.run(cmd_list, input_buffer, prefix_sum_tmp_args, is_exclusive=False)
+    output_buffer = prefix_sum.run(cmd_list, input_buffer, prefix_sum_args, is_exclusive=False)
     cmd_list.end_marker()
 
     coalpy.gpu.begin_collect_markers()
@@ -125,7 +126,7 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
         stride = 4 #size of uint
         )
 
-    #prefix_sum_tmp_args = prefix_sum.allocate_args(sample_size)
+    radix_sort_args = radix_sort.allocate_args(sample_size)
 
     cmd_list = coalpy.gpu.CommandList()
     cmd_list.begin_marker("upload_resource")
@@ -133,8 +134,7 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
     cmd_list.end_marker()
 
     cmd_list.begin_marker("radix_sort")
-    #output_buffer = prefix_sum.run(cmd_list, input_buffer, prefix_sum_tmp_args, is_exclusive=False)
-    output_buffer = input_buffer
+    (output_buffer, count_buffer) = radix_sort.run(cmd_list, input_buffer, radix_sort_args)
     cmd_list.end_marker()
 
     coalpy.gpu.begin_collect_markers()
@@ -170,11 +170,11 @@ def benchmark_sort(args):
 
     print (":: Sort ::")
 
-    if args.printresults:
-        print("Input: " + str(rand_array))
+    #if args.printresults:
+    #    print("Input: " + str(rand_array))
 
-    benchmark_quicksort_numpy(sample_size, rand_array, args)
-    benchmark_radixsort_cpu(sample_size, rand_array, args)
+    # benchmark_quicksort_numpy(sample_size, rand_array, args)
+    # benchmark_radixsort_cpu(sample_size, rand_array, args)
     benchmark_radix_sort_gpu(sample_size, rand_array, args)
     
 
@@ -199,4 +199,4 @@ if __name__ == '__main__':
         np.random.seed(int(args.randseed))
 
     benchmark_sort(args)
-    benchmark_prefix_sum(args)
+    # benchmark_prefix_sum(args)
