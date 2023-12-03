@@ -44,19 +44,23 @@ void csCountScatterBuckets(
     int threadComponentBitIndex = groupIndex & (DWORD_BIT_SIZE - 1); // modulus 32
     uint threadPrefixMask[THREAD_DWORD_COMPONENTS];
 
-    int i, k, unused;
+    int bi, k, unused;
 
-    for (i = 0; i < THREAD_DWORD_COMPONENTS; ++i)
-        threadPrefixMask[i] = i >= threadComponentOffset ? (i == threadComponentOffset ? ((1u << threadComponentBitIndex) - 1u) : 0) : ~0;
+    for (k = 0; k < THREAD_DWORD_COMPONENTS; ++k)
+        threadPrefixMask[k] = k >= threadComponentOffset ? (k == threadComponentOffset ? ((1u << threadComponentBitIndex) - 1u) : 0) : ~0;
 
-    for (i = groupIndex; i < RADIX_COUNTS; i += GROUP_SIZE)
-        gs_radixCounts[i] = 0;
+    for (k = groupIndex; k < RADIX_COUNTS; k += GROUP_SIZE)
+        gs_radixCounts[k] = 0;
 
     GroupMemoryBarrierWithGroupSync();
+    
+    uint batchIterations = (batchEnd - batchBegin + GROUP_SIZE - 1)/GROUP_SIZE;
 
     [loop]
-    for (i = batchBegin + groupIndex; i < batchEnd; i += GROUP_SIZE)
+    for (bi = 0; bi < batchIterations; ++bi)
     {
+        uint i = batchBegin + bi * GROUP_SIZE + groupIndex;
+
         [loop]
         for (k = groupIndex; k < RADIX_TABLE_SIZE; k += GROUP_SIZE)
             gs_localRadixTable[k] = 0;
@@ -75,7 +79,8 @@ void csCountScatterBuckets(
         for (k = 0; k < THREAD_DWORD_COMPONENTS; ++k)
             localOffset += countbits(gs_localRadixTable[THREAD_DWORD_COMPONENTS*radix + k] & threadPrefixMask[k]);
 
-        g_outputBatchOffset[i] = localOffset + gs_radixCounts[radix];
+        if (i < g_inputCount)
+            g_outputBatchOffset[i] = localOffset + gs_radixCounts[radix];
 
         GroupMemoryBarrierWithGroupSync();
 
@@ -94,8 +99,8 @@ void csCountScatterBuckets(
     GroupMemoryBarrierWithGroupSync();
 
     [loop]
-    for (i = groupIndex; i < RADIX_COUNTS; i += GROUP_SIZE)
-        g_outputRadixTable[batchIndex * RADIX_COUNTS + i] = gs_radixCounts[i];
+    for (k = groupIndex; k < RADIX_COUNTS; k += GROUP_SIZE)
+        g_outputRadixTable[batchIndex * RADIX_COUNTS + k] = gs_radixCounts[k];
 }
 
 #define g_batchesCount g_bufferArgs0.x
@@ -141,4 +146,33 @@ void csPrefixGlobalTable(int groupIndex : SV_GroupIndex)
     uint offset, unused;
     ThreadUtils::PrefixExclusive(groupIndex, radixVal, offset, unused);
     g_outputGlobalPrefix[groupIndex] = offset;
+}
+
+Buffer <uint> g_inputUnsorted : register(t0);
+Buffer <uint> g_inputLocalBatchOffset : register(t1);
+Buffer <uint> g_inputCounterTablePrefix : register(t2);
+Buffer <uint> g_inputGlobalPrefix : register(t3);
+RWBuffer<uint> g_outputSorted : register(u0);
+
+//defined already
+//#define g_inputCount g_bufferArgs0.x
+//#define g_batchCount g_bufferArgs0.y
+//#define g_radixMask (uint)g_bufferArgs0.z
+//#define g_radixShift g_bufferArgs0.w
+
+[numthreads(GROUP_SIZE, 1, 1)]
+void csScatterOutput(
+    uint3 dispatchThreadID : SV_DispatchThreadID,
+    uint groupIndex : SV_GroupIndex,
+    uint3 groupID : SV_GroupID)
+{
+    uint batchIndex = groupID.x;
+    uint batchOffset = groupIndex;
+    uint value = dispatchThreadID.x < g_inputCount ? g_inputUnsorted[dispatchThreadID.x] : ~0;
+    uint radix = (value >> g_radixShift) & g_radixMask;
+    if (dispatchThreadID.x < g_inputCount)
+    {
+        uint outputIndex = g_inputGlobalPrefix[radix] + g_inputCounterTablePrefix[radix * g_batchCount + batchIndex] + g_inputLocalBatchOffset[dispatchThreadID.x];
+        g_outputSorted[outputIndex] = value; 
+    }
 }
