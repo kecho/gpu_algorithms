@@ -134,7 +134,7 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
     cmd_list.end_marker()
 
     cmd_list.begin_marker("radix_sort")
-    (local_offsets, output_buffer, count_buffer, count_table_prefix) = radix_sort.run(cmd_list, input_buffer, radix_sort_args)
+    output_buffer = radix_sort.run(cmd_list, input_buffer, radix_sort_args)
     cmd_list.end_marker()
 
     coalpy.gpu.begin_collect_markers()
@@ -173,8 +173,6 @@ def benchmark_sort(args):
 
     #prepare input
     rand_array = np.random.randint(0, high=sample_size, size=sample_size)
-    for i in range(0, sample_size):
-        rand_array[i] = rand_array[i] % 256
 
     print (":: Sort ::")
 
