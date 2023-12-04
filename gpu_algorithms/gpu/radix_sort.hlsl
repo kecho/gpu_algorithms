@@ -166,12 +166,6 @@ Buffer <uint> g_inputCounterTablePrefix : register(t2);
 Buffer <uint> g_inputGlobalPrefix : register(t3);
 RWBuffer<uint> g_outputSorted : register(u0);
 
-//defined already
-//#define g_inputCount g_bufferArgs0.x
-//#define g_batchCount g_bufferArgs0.y
-//#define g_radixMask (uint)g_bufferArgs0.z
-//#define g_radixShift g_bufferArgs0.w
-
 [numthreads(GROUP_SIZE, 1, 1)]
 void csScatterOutput(
     uint3 dispatchThreadID : SV_DispatchThreadID,
