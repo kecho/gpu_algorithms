@@ -5,7 +5,7 @@
 #define GROUP_SIZE 64
 #endif
 
-#define HW_WAVE_SIZE 32
+//#define HW_WAVE_SIZE 32
 
 #include "thread_utils.hlsl"
 
@@ -65,12 +65,14 @@ void csCountScatterBuckets(
         for (k = groupIndex; k < RADIX_TABLE_SIZE; k += GROUP_SIZE)
             gs_localRadixTable[k] = 0;
 
+        // wait for writes in gs_localRadixTable
         GroupMemoryBarrierWithGroupSync();
 
         uint value = i < g_inputCount ? g_inputBuffer[i] : ~0u;
         uint radix = (value >> g_radixShift) & g_radixMask;
         InterlockedOr(gs_localRadixTable[THREAD_DWORD_COMPONENTS*radix + threadComponentOffset], 1u << threadComponentBitIndex, unused);
 
+        // wait atomics in gs_localRadixTable
         GroupMemoryBarrierWithGroupSync();
 
         uint localOffset = 0;
@@ -82,6 +84,7 @@ void csCountScatterBuckets(
         if (i < g_inputCount)
             g_outputBatchOffset[i] = localOffset + gs_radixCounts[radix];
 
+        // wait for reads in gs_radixCounts (we are about to write to it)
         GroupMemoryBarrierWithGroupSync();
 
         for (uint usedRadix = groupIndex; usedRadix < RADIX_COUNTS; usedRadix += GROUP_SIZE)
@@ -94,9 +97,13 @@ void csCountScatterBuckets(
 
             gs_radixCounts[usedRadix] += localCountForRadix;
         }
+
+        // wait for reads in gs_localRadixTable. We are about to write to it in the next iteration.
+        GroupMemoryBarrierWithGroupSync();
     }
 
-    GroupMemoryBarrierWithGroupSync();
+    // No need for this barrier!, since the loop above has one.
+    //GroupMemoryBarrierWithGroupSync();
 
     [loop]
     for (k = groupIndex; k < RADIX_COUNTS; k += GROUP_SIZE)
@@ -126,6 +133,10 @@ void csPrefixCountTable(
 
         uint batchOffset, batchCount;
         ThreadUtils::PrefixExclusive(groupIndex, countValue, batchOffset, batchCount);
+
+        // Mandatory barrier: the prefix above could be using LDS, so the next iteration of this 
+        // loop could cause read / write collisions.
+        GroupMemoryBarrierWithGroupSync();
     
         if (i < g_batchesCount)
             g_outputCounterTablePrefix[radix * g_batchesCount + i] = batchOffset + radixCounts;
@@ -174,6 +185,6 @@ void csScatterOutput(
     if (dispatchThreadID.x < g_inputCount)
     {
         uint outputIndex = g_inputGlobalPrefix[radix] + g_inputCounterTablePrefix[radix * g_batchCount + batchIndex] + g_inputLocalBatchOffset[dispatchThreadID.x];
-        g_outputSorted[outputIndex] = value; 
+        g_outputSorted[outputIndex] = value;
     }
 }

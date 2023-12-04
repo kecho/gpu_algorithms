@@ -134,7 +134,7 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
     cmd_list.end_marker()
 
     cmd_list.begin_marker("radix_sort")
-    output_buffer = radix_sort.run(cmd_list, input_buffer, radix_sort_args)
+    (output_buffer, count_table_prefix) = radix_sort.run(cmd_list, input_buffer, radix_sort_args)
     cmd_list.end_marker()
 
     coalpy.gpu.begin_collect_markers()
@@ -148,11 +148,10 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
         cpu_result_buffer = np.resize(cpu_result_buffer, sample_size)
         print("\t Results: " + str(cpu_result_buffer))
 
-        # counters_download_request = coalpy.gpu.ResourceDownloadRequest(resource = count_table_prefix)
-        # counters_download_request.resolve()
-        # cpu_counter_result_buffer = np.frombuffer(counters_download_request.data_as_bytearray(), dtype='i')
-        # cpu_counter_result_buffer = cpu_counter_result_buffer[0:256]
-        # print("\t Results: " + str(cpu_counter_result_buffer))
+        # uncomment to verify sort
+        #for i in range(1, len(cpu_result_buffer)):
+        #    if (cpu_result_buffer[i - 1 ] > cpu_result_buffer[i]):
+        #        print("ERROR " + str(i))
 
     #calculate time stamp markers
     marker_download_request = coalpy.gpu.ResourceDownloadRequest(resource = marker_results.timestamp_buffer)

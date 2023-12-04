@@ -77,4 +77,4 @@ def run (cmd_list, input_buffer, sort_args):
                 g_batch_size, int(0), int(0), int(0) ]
         )
 
-    return tmp_output_buffer
+    return (tmp_output_buffer, radix_total_counts)
