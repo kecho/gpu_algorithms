@@ -205,5 +205,5 @@ if __name__ == '__main__':
     if rand_seed != RAND_SEED_DEFAULT:
         np.random.seed(int(args.randseed))
 
+    benchmark_prefix_sum(args)
     benchmark_sort(args)
-    # benchmark_prefix_sum(args)
