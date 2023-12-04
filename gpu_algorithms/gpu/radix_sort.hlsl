@@ -128,7 +128,8 @@ void csPrefixCountTable(
         ThreadUtils::PrefixExclusive(groupIndex, countValue, batchOffset, batchCount);
     
         if (i < g_batchesCount)
-            g_outputCounterTablePrefix[radix * g_batchesCount + i] = i;
+            g_outputCounterTablePrefix[radix * g_batchesCount + i] = batchOffset + radixCounts;
+
         radixCounts += batchCount;
     }
 
