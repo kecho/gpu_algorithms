@@ -160,6 +160,8 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
     marker_benchmarks = [
         (name, (marker_data[ei]/marker_results.timestamp_frequency -  marker_data[bi]/marker_results.timestamp_frequency) * 1000) for (name, pid, bi, ei) in marker_results.markers]
 
+    #print (marker_benchmarks)
+
     (_, ellapsed_time) = marker_benchmarks[1]
 
     print("\t Elapsed time: " + str(ellapsed_time) + " ms.")

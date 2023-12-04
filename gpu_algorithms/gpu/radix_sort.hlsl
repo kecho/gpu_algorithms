@@ -2,10 +2,10 @@
 #define RADIX_COUNTS (1 << BITS_PER_RADIX)
 
 #ifndef GROUP_SIZE
-#define GROUP_SIZE 64
+#define GROUP_SIZE 128
 #endif
 
-//#define HW_WAVE_SIZE 32
+#define HW_WAVE_SIZE 32
 
 #include "thread_utils.hlsl"
 
@@ -13,15 +13,17 @@
 
 cbuffer RadixArgs : register(b0)
 {
-    int4 g_bufferArgs0;
-    int4 g_bufferArgs1;
+    uint g_inputCount;
+    uint g_batchCount;
+    uint g_radixMask;
+    uint g_radixShift;
+
+    uint g_elementsInBatch;
+    uint g_unused0;
+    uint g_unused1;
+    uint g_unused2;
 }
 
-#define g_inputCount g_bufferArgs0.x
-#define g_batchCount g_bufferArgs0.y
-#define g_radixMask (uint)g_bufferArgs0.z
-#define g_radixShift g_bufferArgs0.w
-#define g_elementsInBatch g_bufferArgs1.x
 
 Buffer<uint> g_inputBuffer : register(t0);
 RWBuffer<uint> g_outputBatchOffset : register(u0);
@@ -110,8 +112,6 @@ void csCountScatterBuckets(
         g_outputRadixTable[batchIndex * RADIX_COUNTS + k] = gs_radixCounts[k];
 }
 
-#define g_batchesCount g_bufferArgs0.x
-
 Buffer<uint> g_inputCounterTable : register(t0);
 RWBuffer<uint> g_outputCounterTablePrefix : register(u0);
 RWBuffer<uint> g_outputRadixTotalCounts : register(u1);
@@ -124,12 +124,12 @@ void csPrefixCountTable(
     uint radix = groupID.x;
     uint tb = 0;
     uint radixCounts = 0;
-    uint threadBatchesCount = (g_batchesCount + GROUP_SIZE - 1)/ GROUP_SIZE;
+    uint threadBatchesCount = (g_batchCount + GROUP_SIZE - 1)/ GROUP_SIZE;
     for (tb = 0; tb < threadBatchesCount; ++tb)
     {
         uint i = tb * GROUP_SIZE + groupIndex;
     
-        uint countValue = i < g_batchesCount ? g_inputCounterTable[i * RADIX_COUNTS + radix] : 0;
+        uint countValue = i < g_batchCount ? g_inputCounterTable[i * RADIX_COUNTS + radix] : 0;
 
         uint batchOffset, batchCount;
         ThreadUtils::PrefixExclusive(groupIndex, countValue, batchOffset, batchCount);
@@ -138,8 +138,8 @@ void csPrefixCountTable(
         // loop could cause read / write collisions.
         GroupMemoryBarrierWithGroupSync();
     
-        if (i < g_batchesCount)
-            g_outputCounterTablePrefix[radix * g_batchesCount + i] = batchOffset + radixCounts;
+        if (i < g_batchCount)
+            g_outputCounterTablePrefix[radix * g_batchCount + i] = batchOffset + radixCounts;
 
         radixCounts += batchCount;
     }
