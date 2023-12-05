@@ -6,3 +6,41 @@ In recent years there has been a raise in public interest of scalable data proce
 
 Outline:
 
+* Agenda
+* About me
+* Summary of Applications of GPGPU
+* Performance Results:
+    * GPU Radix Sort
+    * GPU Prefix Count
+* GPGPU Concepts:
+    * Graphics APIs
+        * Dx12, Vulkan
+        * CUDA
+        * CoalPy
+    * Introduction to SIMD
+    * Hierarchy of computation:
+        * register
+        * waves
+        * local data share (LDS), ram.
+    * Compute kernel dispatches
+    * Compute kernel groups
+    * Compute kernel threads
+* Prefix sum introduction:
+    * algorithm
+    * applications
+* GPU Prefix Sum:
+    * prefix sum in wave
+    * prefix sum in thread group
+    * prefix sum in data
+* Sorting in CPU
+    * Counting sort
+    * CPU Prefix Sum
+    * Offsets
+* Sorting in GPU
+    * Count Scatter
+    * Prefix batch table
+    * Prefix global table
+    * scatter output
+* Tutorial for coalpy
+* Q&A
+

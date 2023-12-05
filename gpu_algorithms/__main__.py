@@ -18,9 +18,9 @@ def benchmark_prefix_sum(args):
     if args.printresults:
         print("Input: " + str(rand_array))
 
-    benchmark_prefix_sum_gpu(sample_size, rand_array, args)
     benchmark_prefix_sum_numpy(sample_size, rand_array, args)
     benchmark_prefix_sum_cpu(sample_size, rand_array, args)
+    benchmark_prefix_sum_gpu(sample_size, rand_array, args)
 
 def benchmark_prefix_sum_gpu(sample_size, sample_array, args):
     print("\t ::: GPU Prefix Sum :::")

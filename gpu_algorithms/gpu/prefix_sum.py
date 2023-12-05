@@ -36,7 +36,6 @@ def run(cmd_list, input_buffer, prefix_sum_args, is_exclusive = False, input_cou
     pass_list = []
     while perform_reduction:
         input_count = group_count
-        print (input_count)
         group_count = utils.divup(group_count, g_group_size)
         pass_list.append((input_count, output_offset))
 
