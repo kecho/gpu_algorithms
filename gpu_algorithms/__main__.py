@@ -126,7 +126,7 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
         stride = 4 #size of uint
         )
 
-    radix_sort_args = radix_sort.allocate_args(sample_size)
+    radix_sort_args = radix_sort.allocate_args(sample_size, args.sort_output_ordering)
 
     cmd_list = coalpy.gpu.CommandList()
     cmd_list.begin_marker("upload_resource")
@@ -146,6 +146,10 @@ def benchmark_radix_sort_gpu(sample_size, sample_array, args):
         output_download_request.resolve()
         cpu_result_buffer = np.frombuffer(output_download_request.data_as_bytearray(), dtype='i')
         cpu_result_buffer = np.resize(cpu_result_buffer, sample_size)
+        if args.sort_output_ordering:
+            for i in range(0, sample_size):
+                cpu_result_buffer[i] = sample_array[cpu_result_buffer[i]]
+
         print("\t Results: " + str(cpu_result_buffer))
 
         # uncomment to verify sort
@@ -180,8 +184,8 @@ def benchmark_sort(args):
     if args.printresults:
         print("Input: " + str(rand_array))
 
-    benchmark_quicksort_numpy(sample_size, rand_array, args)
-    benchmark_radixsort_cpu(sample_size, rand_array, args)
+    #benchmark_quicksort_numpy(sample_size, rand_array, args)
+    #benchmark_radixsort_cpu(sample_size, rand_array, args)
     benchmark_radix_sort_gpu(sample_size, rand_array, args)
     
 
@@ -195,6 +199,7 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--randseed", default=RAND_SEED_DEFAULT, required=False, help="random seed")
     parser.add_argument("-p", "--printresults", action='store_true', help="print inputs/outputs")
     parser.add_argument("-g", "--printgpu", action='store_true', help="print the used GPU")
+    parser.add_argument("-o", "--sort_output_ordering", default=False, action='store_true', help="sort using extra buffer for keys / indices. Adds sampling cost.")
     args = parser.parse_args()
 
     if args.printgpu:
@@ -205,5 +210,5 @@ if __name__ == '__main__':
     if rand_seed != RAND_SEED_DEFAULT:
         np.random.seed(int(args.randseed))
 
-    benchmark_prefix_sum(args)
+    #benchmark_prefix_sum(args)
     benchmark_sort(args)

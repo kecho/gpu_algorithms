@@ -11,6 +11,9 @@
 
 #define THREAD_DWORD_COMPONENTS (GROUP_SIZE / DWORD_BIT_SIZE)
 
+#define FLAGS_IS_FIRST_PASS 1 << 0
+#define FLAGS_OUTPUT_ORDERING 1 << 1
+
 cbuffer RadixArgs : register(b0)
 {
     uint g_inputCount;
@@ -19,13 +22,14 @@ cbuffer RadixArgs : register(b0)
     uint g_radixShift;
 
     uint g_elementsInBatch;
-    uint g_unused0;
+    uint g_flags;
     uint g_unused1;
     uint g_unused2;
 }
 
 
 Buffer<uint> g_inputBuffer : register(t0);
+Buffer<uint> g_inputOrdering : register(t1);
 RWBuffer<uint> g_outputBatchOffset : register(u0);
 RWBuffer<uint> g_outputRadixTable : register(u1);
 
@@ -58,10 +62,14 @@ void csCountScatterBuckets(
     
     uint batchIterations = (batchEnd - batchBegin + GROUP_SIZE - 1)/GROUP_SIZE;
 
+    bool outputsOrdering = (g_flags & FLAGS_OUTPUT_ORDERING) != 0;
+    bool isFirstPass = (g_flags & FLAGS_IS_FIRST_PASS) != 0;
+    bool sampleOrdering = outputsOrdering && !isFirstPass;
+
     [loop]
     for (bi = 0; bi < batchIterations; ++bi)
     {
-        uint i = batchBegin + bi * GROUP_SIZE + groupIndex;
+        uint inputOffset = batchBegin + bi * GROUP_SIZE + groupIndex;
 
         [loop]
         for (k = groupIndex; k < RADIX_TABLE_SIZE; k += GROUP_SIZE)
@@ -69,6 +77,10 @@ void csCountScatterBuckets(
 
         // wait for writes in gs_localRadixTable
         GroupMemoryBarrierWithGroupSync();
+
+        uint i = inputOffset; 
+        if (sampleOrdering)
+            i = inputOffset < g_inputCount ? g_inputOrdering[inputOffset] : ~0u;
 
         uint value = i < g_inputCount ? g_inputBuffer[i] : ~0u;
         uint radix = (value >> g_radixShift) & g_radixMask;
@@ -161,9 +173,10 @@ void csPrefixGlobalTable(int groupIndex : SV_GroupIndex)
 }
 
 Buffer <uint> g_inputUnsorted : register(t0);
-Buffer <uint> g_inputLocalBatchOffset : register(t1);
-Buffer <uint> g_inputCounterTablePrefix : register(t2);
-Buffer <uint> g_inputGlobalPrefix : register(t3);
+Buffer <uint> g_inputUnsortedOrdering : register(t1);
+Buffer <uint> g_inputLocalBatchOffset : register(t2);
+Buffer <uint> g_inputCounterTablePrefix : register(t3);
+Buffer <uint> g_inputGlobalPrefix : register(t4);
 RWBuffer<uint> g_outputSorted : register(u0);
 
 [numthreads(GROUP_SIZE, 1, 1)]
@@ -174,11 +187,16 @@ void csScatterOutput(
 {
     uint batchIndex = groupID.x;
     uint batchOffset = groupIndex;
-    uint value = dispatchThreadID.x < g_inputCount ? g_inputUnsorted[dispatchThreadID.x] : ~0;
+    uint i = dispatchThreadID.x;
+    bool outputsOrdering = g_flags & FLAGS_OUTPUT_ORDERING;
+    if (outputsOrdering && (g_flags & FLAGS_IS_FIRST_PASS) == 0)
+        i = dispatchThreadID.x < g_inputCount ? g_inputUnsortedOrdering[dispatchThreadID.x] : ~0u;
+
+    uint value = i < g_inputCount ? g_inputUnsorted[i] : ~0;
     uint radix = (value >> g_radixShift) & g_radixMask;
-    if (dispatchThreadID.x < g_inputCount)
+    if (i < g_inputCount)
     {
-        uint outputIndex = g_inputGlobalPrefix[radix] + g_inputCounterTablePrefix[radix * g_batchCount + batchIndex] + g_inputLocalBatchOffset[dispatchThreadID.x];
-        g_outputSorted[outputIndex] = value;
+        uint outputIndex = g_inputGlobalPrefix[radix] + g_inputCounterTablePrefix[radix * g_batchCount + batchIndex] + g_inputLocalBatchOffset[i];
+        g_outputSorted[outputIndex] = outputsOrdering ? i : value;
     }
 }
