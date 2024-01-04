@@ -95,8 +95,8 @@ void csCountScatterBuckets(
         for (k = 0; k < THREAD_DWORD_COMPONENTS; ++k)
             localOffset += countbits(gs_localRadixTable[THREAD_DWORD_COMPONENTS*radix + k] & threadPrefixMask[k]);
 
-        if (i < g_inputCount)
-            g_outputBatchOffset[i] = localOffset + gs_radixCounts[radix];
+        if (inputOffset < g_inputCount)
+            g_outputBatchOffset[inputOffset] = localOffset + gs_radixCounts[radix];
 
         // wait for reads in gs_radixCounts (we are about to write to it)
         GroupMemoryBarrierWithGroupSync();
@@ -196,7 +196,7 @@ void csScatterOutput(
     uint radix = (value >> g_radixShift) & g_radixMask;
     if (i < g_inputCount)
     {
-        uint outputIndex = g_inputGlobalPrefix[radix] + g_inputCounterTablePrefix[radix * g_batchCount + batchIndex] + g_inputLocalBatchOffset[i];
+        uint outputIndex = g_inputGlobalPrefix[radix] + g_inputCounterTablePrefix[radix * g_batchCount + batchIndex] + g_inputLocalBatchOffset[dispatchThreadID.x];
         g_outputSorted[outputIndex] = outputsOrdering ? i : value;
     }
 }
