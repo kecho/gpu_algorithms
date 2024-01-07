@@ -1,5 +1,6 @@
 #define BITS_PER_RADIX 8
 #define RADIX_COUNTS (1 << BITS_PER_RADIX)
+#define BATCH_SIZE 1024
 
 #ifndef GROUP_SIZE
 #define GROUP_SIZE 128
@@ -19,12 +20,30 @@ cbuffer RadixArgs : register(b0)
     uint g_inputCount;
     uint g_batchCount;
     uint g_radixMask;
-    uint g_radixShift;
+    uint g_unused0;
 
-    uint g_elementsInBatch;
+    uint g_radixShift;
     uint g_flags;
-    uint g_unused1;
     uint g_unused2;
+    uint g_unused1;
+}
+
+Buffer<uint> g_inputIndirectCount : register(t0);
+RWBuffer<uint> g_outputConstantBuffer : register(u0);
+RWBuffer<uint> g_outputIndirectBuffer : register(u1);
+
+[numthreads(1, 1, 1)]
+void csWriteIndirectArguments()
+{
+    uint inputCount = g_inputIndirectCount[0];
+    uint batchCounts = (inputCount + BATCH_SIZE - 1) / BATCH_SIZE;
+
+    g_outputConstantBuffer[0] = inputCount;
+    g_outputConstantBuffer[1] = batchCounts;
+
+    g_outputIndirectBuffer[0] = batchCounts;
+    g_outputIndirectBuffer[1] = 1;
+    g_outputIndirectBuffer[2] = 1;
 }
 
 
@@ -43,8 +62,8 @@ void csCountScatterBuckets(
     int3 groupID : SV_GroupID)
 {
     int batchIndex = groupID.x;
-    int batchBegin = batchIndex * g_elementsInBatch;
-    int batchEnd = min(g_inputCount, batchBegin + g_elementsInBatch);
+    int batchBegin = batchIndex * BATCH_SIZE;
+    int batchEnd = min(g_inputCount, batchBegin + BATCH_SIZE);
 
     int threadComponentOffset = groupIndex >> DWORD_BIT_SIZE_LOG2; // divide by 32
     int threadComponentBitIndex = groupIndex & (DWORD_BIT_SIZE - 1); // modulus 32
